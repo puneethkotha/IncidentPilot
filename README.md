@@ -133,7 +133,7 @@ Active development, built in reviewable phases:
 
 - [x] Typed domain models, drift-adaptive detector, policy engine + actuator, scoreboard math
 - [x] Self-contained demo target system + chaos control plane + detection loop
-- [ ] Diagnosis agent wired to Groq with real signal tools + OpenTelemetry tracing
+- [x] Diagnosis agent: tool-calling loop, real signal tools, model fallback ladder, OpenTelemetry tracing
 - [ ] Durable DBOS workflow, approval delivery, post-action verification + rollback
 - [ ] End-to-end eval harness with confidence intervals and a CI accuracy gate
 - [ ] Live incident-timeline dashboard
