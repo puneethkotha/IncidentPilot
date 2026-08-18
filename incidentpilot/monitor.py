@@ -91,6 +91,20 @@ def promql_for(service: str, metric: str) -> str | None:
     return None
 
 
+# Metrics where recovery means the value goes back UP (not down).
+HIGHER_IS_BETTER = {"cache_hit_ratio"}
+
+
+def is_recovered(metric: str, last: float | None, baseline: float, recovery_factor: float) -> bool:
+    """Direction-aware recovery check for post-action verification."""
+
+    if last is None:
+        return False
+    if metric in HIGHER_IS_BETTER:
+        return last >= baseline * 0.8
+    return last <= max(baseline * recovery_factor, 0.05)
+
+
 class PrometheusClient:
     """Minimal Prometheus instant-query client (httpx, lazy import)."""
 

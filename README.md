@@ -135,7 +135,7 @@ Active development, built in reviewable phases:
 - [x] Self-contained demo target system + chaos control plane + detection loop
 - [x] Diagnosis agent: tool-calling loop, real signal tools, model fallback ladder, OpenTelemetry tracing
 - [x] Durable DBOS workflow, approval delivery, post-action verification + rollback
-- [ ] End-to-end eval harness with confidence intervals and a CI accuracy gate
+- [x] End-to-end eval harness with bootstrap confidence intervals and an unsafe-action CI gate
 - [ ] Live incident-timeline dashboard
 
 ## License
