@@ -82,6 +82,15 @@ def default_specs(service: str = "payment-service") -> list[MetricSpec]:
     ]
 
 
+def promql_for(service: str, metric: str) -> str | None:
+    """Recover the PromQL for a watched metric name (used by verification)."""
+
+    for spec in default_specs(service):
+        if spec.metric == metric:
+            return spec.promql
+    return None
+
+
 class PrometheusClient:
     """Minimal Prometheus instant-query client (httpx, lazy import)."""
 

@@ -32,16 +32,44 @@ from incidentpilot.models import (
 
 Executor = Callable[[RemediationProposal, Settings], dict]
 
+# Which fault each remediation actually heals on the demo control plane. Only the
+# *correct* action for an incident clears its fault, so post-action verification
+# reflects remediation correctness rather than rubber-stamping any action.
+_HEALS: dict[ActionType, str] = {
+    ActionType.ROLLBACK_DEPLOY: "pool_exhaust",  # roll back the bad deploy
+    ActionType.RESTART_SERVICE: "crash_loop",  # restart a crash-looping worker
+    ActionType.FAILOVER: "redis_down",  # fail over to a healthy cache
+    ActionType.SCALE_OUT: "latency",  # add capacity to relieve latency
+    ActionType.THROTTLE_TRAFFIC: "latency",  # shed load to relieve latency
+}
 
-def _stub_executor(kind: str) -> Executor:
+
+def _executor(action: ActionType) -> Executor:
+    """Real executor: acts against the target's control plane over HTTP.
+
+    In a production deploy these would call k8s / a deploy tool / a load
+    balancer; here they drive the demo system under test, which is what makes
+    the closed loop (act -> verify -> resolved) genuinely observable.
+    """
+
     def _run(proposal: RemediationProposal, settings: Settings) -> dict:
-        # TODO: replace with real integration (k8s API, deploy tool, LB, etc.).
-        return {
-            "kind": kind,
-            "params": proposal.params,
-            "target_env": settings.target_env,
-            "note": "stub executor -- no real infra touched",
-        }
+        fault = _HEALS.get(action)
+        if fault is None:
+            return {"ok": True, "action": action.value, "effect": "no-op (nothing to heal)"}
+        import httpx  # lazy
+
+        try:
+            httpx.post(f"{settings.target_url}/admin/clear", json={"fault": fault}, timeout=5.0)
+            if action is ActionType.ROLLBACK_DEPLOY:
+                to_version = proposal.params.get("to_version", "v411")
+                httpx.post(
+                    f"{settings.target_url}/admin/deploy",
+                    json={"version": to_version, "bad": False, "note": "rollback"},
+                    timeout=5.0,
+                )
+            return {"ok": True, "action": action.value, "cleared": fault}
+        except Exception as exc:  # noqa: BLE001 - a failed actuation is a result, not a crash
+            return {"ok": False, "action": action.value, "error": f"{type(exc).__name__}: {exc}"}
 
     return _run
 
@@ -55,14 +83,14 @@ class RemediationRegistry:
 
     def __init__(self) -> None:
         self._registry: dict[ActionType, tuple[Executor, float]] = {
-            ActionType.NO_OP: (_stub_executor("no_op"), 0.0),
-            ActionType.CLEAR_CACHE: (_stub_executor("clear_cache"), 0.10),
-            ActionType.SCALE_OUT: (_stub_executor("scale_out"), 0.20),
-            ActionType.SCALE_IN: (_stub_executor("scale_in"), 0.25),
-            ActionType.THROTTLE_TRAFFIC: (_stub_executor("throttle_traffic"), 0.30),
-            ActionType.RESTART_SERVICE: (_stub_executor("restart_service"), 0.40),
-            ActionType.ROLLBACK_DEPLOY: (_stub_executor("rollback_deploy"), 0.70),
-            ActionType.FAILOVER: (_stub_executor("failover"), 0.90),
+            ActionType.NO_OP: (_executor(ActionType.NO_OP), 0.0),
+            ActionType.CLEAR_CACHE: (_executor(ActionType.CLEAR_CACHE), 0.10),
+            ActionType.SCALE_OUT: (_executor(ActionType.SCALE_OUT), 0.20),
+            ActionType.SCALE_IN: (_executor(ActionType.SCALE_IN), 0.25),
+            ActionType.THROTTLE_TRAFFIC: (_executor(ActionType.THROTTLE_TRAFFIC), 0.30),
+            ActionType.RESTART_SERVICE: (_executor(ActionType.RESTART_SERVICE), 0.40),
+            ActionType.ROLLBACK_DEPLOY: (_executor(ActionType.ROLLBACK_DEPLOY), 0.70),
+            ActionType.FAILOVER: (_executor(ActionType.FAILOVER), 0.90),
         }
 
     def default_blast_radius(self, action: ActionType) -> float:
@@ -193,13 +221,18 @@ class Actuator:
                 message="awaiting human approval (high blast radius)",
             )
 
-        # All guards passed -- run the (stub) executor.
+        # All guards passed -- run the executor against the target control plane.
         executor = self.registry.executor(proposal.action)
         output = executor(proposal, settings)
+        ok = bool(output.get("ok", True))
         return ActionResult(
             action=proposal.action,
             executed=True,
-            success=True,
-            message=f"executed {proposal.action.value} in {settings.target_env}",
+            success=ok,
+            message=(
+                f"executed {proposal.action.value} in {settings.target_env}"
+                if ok
+                else f"actuation failed: {output.get('error', 'unknown')}"
+            ),
             output=output,
         )

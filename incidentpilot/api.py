@@ -1,13 +1,16 @@
-"""FastAPI surface + entrypoint -- SKELETON (in-memory store, TODO persistence).
+"""FastAPI surface + entrypoint.
 
 Endpoints:
-  GET  /incidents                  -- list known incidents
-  POST /incidents/{id}/approve     -- approve a pending high-blast-radius action
-  GET  /scoreboard                 -- latest eval scoreboard
-  POST /webhook/incident           -- ingest an incident and start the workflow
+  GET  /healthz                    -- liveness
+  GET  /incidents                  -- known incidents
+  GET  /incidents/{id}             -- an incident + its latest workflow status
+  POST /incidents/{id}/approve     -- deliver a human approval to the waiting workflow
+  GET  /scoreboard                 -- latest eval scoreboard (Phase 4)
+  POST /webhook/incident           -- ingest an incident and start the durable workflow
 
-The webhook is what Alertmanager/Grafana calls. It kicks off the durable DBOS
-workflow so the rest survives crashes.
+The webhook is what Alertmanager/Grafana (or the detector) calls; it kicks off
+the DBOS workflow so the remediation loop is durable and auditable. DBOS is
+launched in main() before serving.
 """
 
 from __future__ import annotations
@@ -17,12 +20,14 @@ from typing import Any
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
+from incidentpilot.config import get_settings
 from incidentpilot.models import Incident
 
-app = FastAPI(title="IncidentPilot", version="0.1.0")
+app = FastAPI(title="IncidentPilot", version="0.3.0")
 
-# TODO: replace in-memory store with Postgres (or read back from DBOS state).
+# In-memory indices (the durable state of record lives in DBOS).
 _INCIDENTS: dict[str, Incident] = {}
+_WORKFLOWS: dict[str, str] = {}  # incident_id -> workflow_id
 _SCOREBOARD: dict[str, Any] = {}
 
 
@@ -32,19 +37,52 @@ class ApprovalBody(BaseModel):
     note: str = ""
 
 
+def _status_for(incident_id: str) -> dict[str, Any] | None:
+    workflow_id = _WORKFLOWS.get(incident_id)
+    if not workflow_id:
+        return None
+    from dbos import DBOS
+
+    from incidentpilot.workflow import STATUS_EVENT
+
+    try:
+        return DBOS.get_event(workflow_id, STATUS_EVENT, timeout_seconds=0)
+    except Exception:  # noqa: BLE001
+        return None
+
+
+@app.get("/healthz")
+def healthz() -> dict[str, str]:
+    return {"status": "ok"}
+
+
 @app.get("/incidents")
 def list_incidents() -> list[Incident]:
     return list(_INCIDENTS.values())
 
 
-@app.post("/incidents/{incident_id}/approve")
-def approve(incident_id: str, body: ApprovalBody) -> dict[str, Any]:
+@app.get("/incidents/{incident_id}")
+def get_incident(incident_id: str) -> dict[str, Any]:
     if incident_id not in _INCIDENTS:
         raise HTTPException(status_code=404, detail="unknown incident")
-    # TODO: deliver approval to the waiting workflow, e.g.:
-    #   from dbos import DBOS
-    #   DBOS.send(workflow_id_for(incident_id), body.model_dump(), topic="approval")
-    return {"incident_id": incident_id, "delivered": body.model_dump()}
+    return {
+        "incident": _INCIDENTS[incident_id].model_dump(mode="json"),
+        "workflow_id": _WORKFLOWS.get(incident_id),
+        "status": _status_for(incident_id),
+    }
+
+
+@app.post("/incidents/{incident_id}/approve")
+def approve(incident_id: str, body: ApprovalBody) -> dict[str, Any]:
+    workflow_id = _WORKFLOWS.get(incident_id)
+    if workflow_id is None:
+        raise HTTPException(status_code=404, detail="unknown incident / no workflow")
+    from dbos import DBOS
+
+    from incidentpilot.workflow import APPROVAL_TOPIC
+
+    DBOS.send(workflow_id, body.model_dump(), topic=APPROVAL_TOPIC)
+    return {"incident_id": incident_id, "workflow_id": workflow_id, "delivered": body.model_dump()}
 
 
 @app.get("/scoreboard")
@@ -54,22 +92,38 @@ def scoreboard() -> dict[str, Any]:
 
 @app.post("/webhook/incident")
 def webhook_incident(incident: Incident) -> dict[str, Any]:
+    from dbos import DBOS
+
+    from incidentpilot.workflow import handle_incident
+
     _INCIDENTS[incident.id] = incident
-    # TODO: start the durable workflow (requires DBOS.launch() in main()):
-    #   from dbos import DBOS
-    #   from incidentpilot.workflow import handle_incident
-    #   handle = DBOS.start_workflow(handle_incident, incident)
-    #   return {"incident_id": incident.id, "workflow_id": handle.workflow_id}
-    return {"incident_id": incident.id, "status": "accepted", "started": False}
+    handle = DBOS.start_workflow(handle_incident, incident)
+    _WORKFLOWS[incident.id] = handle.workflow_id
+    return {"incident_id": incident.id, "workflow_id": handle.workflow_id, "started": True}
+
+
+def _dbos_config() -> dict[str, Any]:
+    settings = get_settings()
+    return {
+        "name": "incidentpilot",
+        "application_version": app.version,
+        "system_database_url": settings.dbos_system_database_url,
+    }
 
 
 def main() -> None:
-    """Console entrypoint: launch DBOS then serve the API."""
+    """Console entrypoint: launch DBOS (durable execution) then serve the API."""
 
     import uvicorn
+    from dbos import DBOS
 
-    # DBOS is launched here in Phase 3 (durable orchestration); for now the API
-    # is a thin surface over the in-memory store.
+    # Register decorated workflows/steps before launch.
+    import incidentpilot.workflow  # noqa: F401
+    from incidentpilot.tracing import setup_tracing
+
+    setup_tracing()
+    DBOS(fastapi=app, config=_dbos_config())
+    DBOS.launch()
     uvicorn.run(app, host="0.0.0.0", port=8000)
 
 
