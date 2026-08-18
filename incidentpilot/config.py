@@ -21,21 +21,26 @@ class Settings(BaseSettings):
         populate_by_name=True,
     )
 
-    # --- LLM (OpenAI-compatible; default Groq free tier, Claude as alt) ---
+    # --- LLM (OpenAI-compatible; default Groq free tier, Ollama offline alt) ---
     groq_api_key: str = Field(default="", alias="GROQ_API_KEY")
-    groq_base_url: str = Field(
-        default="https://api.groq.com/openai/v1", alias="GROQ_BASE_URL"
+    groq_base_url: str = Field(default="https://api.groq.com/openai/v1", alias="GROQ_BASE_URL")
+    # Primary model + fallback ladder. On a rate-limit / error we walk down the
+    # ladder (strong reasoner -> proven tool-caller -> cheap high-RPD model).
+    llm_model: str = Field(default="openai/gpt-oss-120b", alias="LLM_MODEL")
+    llm_fallback_models: list[str] = Field(
+        default_factory=lambda: ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]
     )
-    llm_model: str = Field(default="llama-3.3-70b-versatile", alias="LLM_MODEL")
+    llm_timeout_seconds: float = 30.0
+    llm_max_retries: int = 3
 
-    # --- Infra (Postgres for DBOS durability; Prometheus for signals) ---
+    # --- Infra ---
     database_url: str = Field(
         default="postgresql://incidentpilot:incidentpilot@localhost:5432/incidentpilot",
         alias="DATABASE_URL",
     )
-    prometheus_url: str = Field(
-        default="http://localhost:9090", alias="PROMETHEUS_URL"
-    )
+    prometheus_url: str = Field(default="http://localhost:9090", alias="PROMETHEUS_URL")
+    # The system under test -- backs query_logs / recent_deploys / get_traces.
+    target_url: str = Field(default="http://localhost:8080", alias="TARGET_URL")
 
     # --- Autonomy / safety ---
     # propose_only: never actuate, only surface proposals (safe default).
