@@ -85,6 +85,30 @@ def approve(incident_id: str, body: ApprovalBody) -> dict[str, Any]:
     return {"incident_id": incident_id, "workflow_id": workflow_id, "delivered": body.model_dump()}
 
 
+@app.get("/incidents/{incident_id}/postmortem")
+def postmortem(incident_id: str) -> dict[str, Any]:
+    if incident_id not in _INCIDENTS:
+        raise HTTPException(status_code=404, detail="unknown incident")
+    workflow_id = _WORKFLOWS.get(incident_id)
+    report = None
+    if workflow_id:
+        from dbos import DBOS
+
+        from incidentpilot.workflow import REPORT_EVENT
+
+        try:
+            report = DBOS.get_event(workflow_id, REPORT_EVENT, timeout_seconds=0)
+        except Exception:  # noqa: BLE001
+            report = None
+    if report is None:
+        raise HTTPException(status_code=409, detail="incident not yet resolved")
+
+    from incidentpilot.postmortem import render_postmortem
+
+    md = render_postmortem(_INCIDENTS[incident_id], report)
+    return {"incident_id": incident_id, "markdown": md}
+
+
 @app.get("/scoreboard")
 def scoreboard() -> dict[str, Any]:
     return _SCOREBOARD

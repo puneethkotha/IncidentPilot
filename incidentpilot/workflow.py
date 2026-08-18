@@ -35,6 +35,7 @@ from incidentpilot.monitor import is_recovered, promql_for
 from incidentpilot.signals import Signals, build_signals
 
 STATUS_EVENT = "status"  # DBOS event key a dashboard reads for live progress
+REPORT_EVENT = "report"  # final artifact the postmortem generator reads
 APPROVAL_TOPIC = "approval"
 
 _registry = RemediationRegistry()
@@ -178,5 +179,23 @@ def handle_incident(incident: Incident) -> VerificationResult:
     if result.executed and not verification.resolved:
         rollback_step(proposal, result)
 
+    # Publish the audit artifact the postmortem generator reads.
+    with contextlib.suppress(Exception):
+        DBOS.set_event(
+            REPORT_EVENT,
+            {
+                "cause": hypothesis.cause,
+                "confidence": hypothesis.confidence,
+                "evidence": [{"tool": e.tool, "summary": e.summary} for e in hypothesis.evidence],
+                "action": proposal.action.value,
+                "blast_radius": proposal.blast_radius,
+                "allowed": decision.allowed,
+                "requires_approval": decision.requires_approval,
+                "approved": approved,
+                "executed": result.executed,
+                "resolved": verification.resolved,
+                "metrics_after": verification.metrics_after,
+            },
+        )
     _set_status("resolved" if verification.resolved else "closed", resolved=verification.resolved)
     return verification
