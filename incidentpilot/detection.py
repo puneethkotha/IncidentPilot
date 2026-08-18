@@ -42,10 +42,18 @@ class DriftAdaptiveDetector:
         window: int = 50,
         z_threshold: float = 3.5,
         min_samples: int = 10,
+        rel_floor: float = 0.10,
+        abs_floor: float = 1e-4,
     ) -> None:
         self.window = window
         self.z_threshold = z_threshold
         self.min_samples = min_samples
+        # Noise floor on the scale estimate. A near-constant window has MAD == 0,
+        # which would make any micro-wiggle look infinitely anomalous. We floor
+        # the scale at max(rel_floor * |median|, abs_floor) so a signal must move
+        # by a *meaningful* fraction of its own level before it can alert.
+        self.rel_floor = rel_floor
+        self.abs_floor = abs_floor
         self._buffers: dict[str, deque[float]] = {}
 
     def _severity(self, z: float) -> Severity:
@@ -77,11 +85,9 @@ class DriftAdaptiveDetector:
             mad = float(np.median(np.abs(arr - median)))
             robust_std = _MAD_TO_STD * mad
 
-            if robust_std == 0.0:
-                # Degenerate flat window: fall back to a simple non-zero delta.
-                z = 0.0 if value == median else float("inf")
-            else:
-                z = (value - median) / robust_std
+            # Floor the scale so a flat baseline can't manufacture huge z-scores.
+            scale = max(robust_std, self.rel_floor * abs(median), self.abs_floor)
+            z = (value - median) / scale
 
             if abs(z) >= self.z_threshold:
                 severity = self._severity(z)
@@ -91,7 +97,7 @@ class DriftAdaptiveDetector:
                     metric=metric,
                     value=value,
                     baseline=median,
-                    z_score=(z if np.isfinite(z) else self.z_threshold * 2),
+                    z_score=z,
                     severity=severity,
                     description=(
                         f"{metric} on {service} = {value:.3f} vs baseline "
