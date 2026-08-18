@@ -69,7 +69,7 @@ class DiagnosisAgent:
             return {"error": f"unknown tool: {name}"}
         try:
             return fn(**args)
-        except Exception as exc:  # keep the loop alive; surface the error
+        except Exception as exc:  # noqa: BLE001 - surface any tool error to the model, keep the loop alive
             return {"error": f"{type(exc).__name__}: {exc}"}
 
     # --- main loop ------------------------------------------------------ #

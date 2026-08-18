@@ -15,14 +15,14 @@ from incidentpilot.models import ActionType, AuthorizationDecision, RemediationP
 
 
 def _settings(**overrides) -> Settings:
-    base = dict(
-        mode="auto",
-        target_env="dev",
-        allowed_envs=["dev", "staging", "prod"],
-        blast_radius_auto_threshold=0.30,
-        rate_limit_window_seconds=3600,
-        default_action_rate_limit=3,
-    )
+    base = {
+        "mode": "auto",
+        "target_env": "dev",
+        "allowed_envs": ["dev", "staging", "prod"],
+        "blast_radius_auto_threshold": 0.30,
+        "rate_limit_window_seconds": 3600,
+        "default_action_rate_limit": 3,
+    }
     base.update(overrides)
     return Settings(**base)
 

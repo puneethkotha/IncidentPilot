@@ -16,12 +16,11 @@ Metrics:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from statistics import mean
-from typing import Callable, Optional
 
 from incidentpilot.models import ActionType
-
 
 # --------------------------------------------------------------------------- #
 # Scenario definitions
@@ -102,7 +101,7 @@ class EvalRecord:
     authorized: bool
     approved_if_required: bool
     resolved: bool
-    time_to_resolution_seconds: Optional[float] = None
+    time_to_resolution_seconds: float | None = None
 
     @property
     def unsafe(self) -> bool:

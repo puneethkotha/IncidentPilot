@@ -12,6 +12,7 @@ connected lazily, inside the call).
 
 from __future__ import annotations
 
+from datetime import UTC
 from typing import Any
 
 
@@ -22,7 +23,7 @@ def query_metrics(promql: str, minutes: int = 15) -> dict[str, Any]:
     that merely importing this module never hits the network.
     """
 
-    from datetime import datetime, timedelta, timezone
+    from datetime import datetime, timedelta
 
     from prometheus_api_client import PrometheusConnect  # lazy import
 
@@ -30,7 +31,7 @@ def query_metrics(promql: str, minutes: int = 15) -> dict[str, Any]:
 
     settings = get_settings()
     prom = PrometheusConnect(url=settings.prometheus_url, disable_ssl=True)
-    end = datetime.now(timezone.utc)
+    end = datetime.now(UTC)
     start = end - timedelta(minutes=minutes)
     series = prom.custom_query_range(
         query=promql,
@@ -120,7 +121,7 @@ TOOL_SCHEMAS: list[dict[str, Any]] = [
         "type": "function",
         "function": {
             "name": "query_logs",
-            "description": "Fetch recent log lines for a service, optionally filtered by substring.",
+            "description": "Fetch recent log lines for a service, optionally filtered by substring",
             "parameters": {
                 "type": "object",
                 "properties": {

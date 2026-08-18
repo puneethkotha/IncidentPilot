@@ -17,7 +17,6 @@ from typing import Any
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from incidentpilot.config import get_settings
 from incidentpilot.models import Incident
 
 app = FastAPI(title="IncidentPilot", version="0.1.0")
@@ -69,11 +68,8 @@ def main() -> None:
 
     import uvicorn
 
-    settings = get_settings()
-    # TODO: initialize DBOS before serving so workflows are durable:
-    #   from dbos import DBOS
-    #   DBOS(fastapi=app)   # binds to app + settings.database_url
-    #   DBOS.launch()
+    # DBOS is launched here in Phase 3 (durable orchestration); for now the API
+    # is a thin surface over the in-memory store.
     uvicorn.run(app, host="0.0.0.0", port=8000)
 
 

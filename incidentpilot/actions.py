@@ -15,7 +15,7 @@ Safety invariants enforced:
 from __future__ import annotations
 
 import time
-from typing import Callable
+from collections.abc import Callable
 
 from incidentpilot.config import Settings
 from incidentpilot.models import (

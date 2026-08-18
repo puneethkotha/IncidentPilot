@@ -7,18 +7,18 @@ No I/O happens here; everything is a plain value object.
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from enum import Enum
-from typing import Any, Optional
+from datetime import UTC, datetime
+from enum import StrEnum
+from typing import Any
 
 from pydantic import BaseModel, Field
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
-class Severity(str, Enum):
+class Severity(StrEnum):
     """Incident severity, roughly aligned to how far a metric drifted."""
 
     INFO = "info"
@@ -26,7 +26,7 @@ class Severity(str, Enum):
     CRITICAL = "critical"
 
 
-class ActionType(str, Enum):
+class ActionType(StrEnum):
     """The closed set of remediations IncidentPilot is allowed to reason about.
 
     A closed enum (not free-text) is deliberate: the PolicyEngine and the
@@ -66,7 +66,7 @@ class Incident(BaseModel):
     description: str = ""
     signals: list[Signal] = Field(default_factory=list)
     detected_at: datetime = Field(default_factory=_now)
-    resolved_at: Optional[datetime] = None
+    resolved_at: datetime | None = None
 
 
 class Evidence(BaseModel):
@@ -83,7 +83,7 @@ class RootCauseHypothesis(BaseModel):
     cause: str
     confidence: float = Field(ge=0.0, le=1.0)
     evidence: list[Evidence] = Field(default_factory=list)
-    recommended_action: Optional[ActionType] = None
+    recommended_action: ActionType | None = None
 
 
 class RemediationProposal(BaseModel):

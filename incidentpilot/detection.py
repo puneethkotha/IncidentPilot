@@ -13,7 +13,6 @@ from __future__ import annotations
 
 import uuid
 from collections import deque
-from typing import Optional
 
 import numpy as np
 
@@ -62,7 +61,7 @@ class DriftAdaptiveDetector:
         metric: str,
         value: float,
         service: str = "unknown",
-    ) -> Optional[Incident]:
+    ) -> Incident | None:
         """Feed one sample; return an Incident iff it breaks from baseline.
 
         The sample is always folded into the window afterwards so the baseline
@@ -71,7 +70,7 @@ class DriftAdaptiveDetector:
 
         buf = self._buffers.setdefault(metric, deque(maxlen=self.window))
 
-        incident: Optional[Incident] = None
+        incident: Incident | None = None
         if len(buf) >= self.min_samples:
             arr = np.fromiter(buf, dtype=float)
             median = float(np.median(arr))
