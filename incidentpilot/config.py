@@ -39,8 +39,14 @@ class Settings(BaseSettings):
         alias="DATABASE_URL",
     )
     prometheus_url: str = Field(default="http://localhost:9090", alias="PROMETHEUS_URL")
-    # The system under test -- backs query_logs / recent_deploys / get_traces.
+    # The system under test -- backs query_logs / recent_deploys / get_traces
+    # and the remediation control plane.
     target_url: str = Field(default="http://localhost:8080", alias="TARGET_URL")
+    # DBOS durable-execution store. SQLite by default (zero setup); point at a
+    # Postgres URL to demonstrate recovery across a process restart.
+    dbos_system_database_url: str = Field(
+        default="sqlite:///incidentpilot_dbos.sqlite", alias="DBOS_SYSTEM_DATABASE_URL"
+    )
 
     # --- Autonomy / safety ---
     # propose_only: never actuate, only surface proposals (safe default).
@@ -53,6 +59,13 @@ class Settings(BaseSettings):
 
     # Any proposal with blast_radius strictly above this needs a human.
     blast_radius_auto_threshold: float = 0.30
+
+    # --- Post-action verification ---
+    # After acting, poll the incident's own metric until it recovers (or times
+    # out). "Recovered" = current value back within recovery_factor x baseline.
+    verify_timeout_seconds: float = 60.0
+    verify_poll_interval_seconds: float = 3.0
+    recovery_factor: float = 3.0
 
     # Per-action rate limiting (max executions per window). Missing keys fall
     # back to default_action_rate_limit. Values are counts within the window.

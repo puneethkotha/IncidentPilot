@@ -280,6 +280,31 @@ async def chaos(body: ChaosBody) -> dict[str, Any]:
     return {"injected": f, "chaos": STATE.chaos.snapshot()}
 
 
+class ClearBody(BaseModel):
+    fault: str  # the specific fault a remediation targets
+
+
+@app.post("/admin/clear")
+async def clear(body: ClearBody) -> dict[str, Any]:
+    """Clear one specific fault. Remediations call this, so only the *correct*
+    remediation for a given incident actually heals it (and verification then
+    observes real recovery)."""
+
+    f = body.fault
+    if f == "pool_exhaust":
+        STATE.chaos.pool_exhaust = False
+    elif f == "redis_down":
+        STATE.chaos.redis_down = False
+    elif f == "latency":
+        STATE.chaos.extra_latency_s = 0.0
+    elif f == "crash_loop":
+        STATE.chaos.crash_rate = 0.0
+    else:
+        return {"error": f"unknown fault: {f}", "chaos": STATE.chaos.snapshot()}
+    STATE.log("INFO", f"fault cleared by remediation: {f}")
+    return {"cleared": f, "chaos": STATE.chaos.snapshot()}
+
+
 @app.post("/admin/reset")
 async def reset() -> dict[str, Any]:
     STATE.chaos.reset()
