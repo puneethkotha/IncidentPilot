@@ -1,60 +1,41 @@
 {
   "mode": "replay",
-  "incident": {
-    "id": "inc-7f3a2b",
-    "service": "payment-service",
-    "metric": "http_request_duration_seconds:p95",
-    "baseline": "0.35s",
-    "severity": "high"
-  },
-  "scoreboard": {
-    "faults": "12",
-    "root_cause_accuracy": "83%",
-    "remediation_success": "75%",
-    "mttr": "142s",
-    "unsafe": "0.00"
-  },
-  "services": [
-    { "name": "api-gateway", "status": "ok" },
-    { "name": "payment-service", "status": "hot" },
-    { "name": "checkout", "status": "ok" },
-    { "name": "cache-redis", "status": "warn" },
-    { "name": "ledger-db", "status": "ok" },
-    { "name": "notify-svc", "status": "ok" }
+  "signals": [
+    { "name": "p95_latency", "now": "2.94s", "base": "0.34s", "limit": "1.0s", "hot": true,  "spark": [11,11,11,3,4,3] },
+    { "name": "pool_wait",   "now": "1.82s", "base": "0.008s","limit": "—",   "hot": true,  "spark": [12,12,12,4,5,4] },
+    { "name": "5xx_rate",    "now": "18.6%", "base": "0.10%", "limit": "1%",  "hot": true,  "spark": [12,12,12,5,4,4] },
+    { "name": "db_conns",    "now": "50 / 50","base": "18",   "limit": "50",  "hot": false, "spark": [11,11,11,2,2,2] }
   ],
-  "timeline": [
-    { "at": 2200, "chart": "rising", "chartLbl": "rising" },
-    { "at": 3600, "phase": "detected", "banner": "alert", "title": "● INCIDENT DETECTED",
-      "desc": "payment-service p95 2.9s vs 0.35s · robust z-score 8.4",
-      "chart": "high", "chartLbl": "breach · z=8.4", "rtl": "incident", "rtv": "inc-7f3a2b",
-      "hotService": "payment-service" },
-    { "at": 4600, "phase": "investigating", "banner": "work", "title": "◐ INVESTIGATING",
-      "desc": "agent opened · running typed tool calls", "rtl": "elapsed", "rtv": "0:04",
-      "agentR": "running" },
-    { "at": 5000, "tool": "query_metrics", "arg": "histogram_quantile(0.95, http_request_duration…)",
-      "result": "p95 0.35 → 2.90s at 14:01:20 (+728%)", "evidence": "metric · p95 spike @ 14:01" },
-    { "at": 6100, "tool": "recent_deploys", "arg": "service=payment-service window=30m",
-      "result": "payment-service v412 @ 14:00:04 · 90s before onset", "evidence": "deploy · v412 (−90s)" },
-    { "at": 7200, "tool": "query_metrics", "arg": "pg_pool_wait_seconds",
-      "result": "pool_wait 0.01 → 1.8s · corr 0.97", "evidence": "metric · pool_wait 0.01→1.8" },
-    { "at": 8300, "tool": "query_logs", "arg": "contains=\"acquiring connection\"",
-      "result": "ERROR ×1180 \"timeout acquiring connection\"", "evidence": "logs · timeout ×1180" },
-    { "at": 9600, "tool": "read_runbook", "arg": "symptom=pool timeout",
-      "result": "matched: pool_exhaustion → roll back the deploy", "evidence": "runbook · pool_exhaustion" },
-    { "at": 10600, "phase": "root_cause",
-      "cause": "payment-service DB connection pool exhausted after deploy v412",
-      "confidence": "high", "why": "3 independent signals + deploy correlation · seen 6× before",
-      "agentR": "concluding" },
-    { "at": 11400, "phase": "awaiting_approval", "banner": "wait", "title": "◆ AWAITING APPROVAL",
-      "desc": "high blast radius in prod → human sign-off required", "rtl": "elapsed", "rtv": "0:11",
-      "agentR": "awaiting human", "action": "rollback_deploy", "from": "v412", "to": "v411",
-      "blast": "0.60 · high", "affected": "6 pods · prod", "reversible": "yes", "dryrun": "passed" },
-    { "at": 14200, "phase": "applying", "banner": "work", "title": "◐ APPLYING FIX",
-      "desc": "approved by puneeth · rollback_deploy v412 → v411", "approved": true },
-    { "at": 15600, "chart": "recovering", "chartLbl": "recovering" },
-    { "at": 17600, "phase": "resolved", "banner": "done", "title": "✓ RESOLVED",
-      "desc": "self-verified: p95 back to 0.33s · SLO recovered", "rtl": "MTTR", "rtv": "142s",
-      "chart": "recovering", "chartLbl": "recovered", "clearHot": true,
-      "verify": "Verified resolved. Re-queried the incident's own metric after rollback — p95 back to 0.33s. No rollback needed." }
-  ]
+  "tape": [
+    { "tc": "14:00:08Z", "lab": "deploy v412", "cls": "" },
+    { "tc": "14:02:38Z", "lab": "alert fired · payment-p95-slo", "cls": "hot" },
+    { "tc": "14:02:41Z", "lab": "query_metrics", "cls": "" },
+    { "tc": "14:02:58Z", "lab": "recent_deploys", "cls": "" },
+    { "tc": "14:03:10Z", "lab": "query_metrics", "cls": "" },
+    { "tc": "14:03:24Z", "lab": "query_logs", "cls": "" },
+    { "tc": "14:03:39Z", "lab": "read_runbook", "cls": "" },
+    { "tc": "14:04:02Z", "lab": "root cause", "cls": "" },
+    { "tc": "14:06:50Z", "lab": "awaiting you", "cls": "now" }
+  ],
+  "steps": [
+    { "t": "14:02:41", "tool": "<b>query_metrics</b> p95 0.34 → <b>2.94s</b> · <a>PromQL</a>", "dur": "0.4s" },
+    { "t": "14:02:58", "tool": "<b>recent_deploys</b> <a>v412</a> @ 14:00:08Z · 90s pre-onset", "dur": "0.2s" },
+    { "t": "14:03:10", "tool": "<b>query_metrics</b> pool_wait 0.008 → <b>1.82s</b>", "dur": "0.3s" },
+    { "t": "14:03:24", "tool": "<b>query_logs</b> <a>×1,180 “timeout acquiring connection”</a>", "dur": "0.5s" },
+    { "t": "14:03:39", "tool": "<b>read_runbook</b> <a>db-pool-exhaustion@v7</a>", "dur": "0.1s" }
+  ],
+  "verdict": {
+    "rc": "Deploy v412 raised the app pool ceiling above Postgres’ connection limit, so the database started refusing connections.",
+    "why": "v412 set <span class=\"mono\">db.pool.max_size 20→60</span>, but Postgres <span class=\"mono\">max_connections</span> is <span class=\"mono\">50</span>. The 51st connection was refused, so workers blocked acquiring — <span class=\"mono\">pool_wait</span> hit <span class=\"mono\">1.82s</span> and p95 followed ~90s after the rollout.",
+    "dx": "<s>redis cache</s> ruled out — hit-rate steady <b>0.9987</b> &nbsp;·&nbsp; <s>traffic surge</s> ruled out — rps flat <b>4,182</b>"
+  },
+  "decision": {
+    "act": "rollback_deploy → v411",
+    "voice": "“High blast radius in prod. I won’t touch it until you approve.”",
+    "diff": "<div class=\"cx\">payment-service · rollback plan · dry-run passed</div><div class=\"d1\">− v412  db.pool.max_size: 60   <span class=\"cx\"># &gt; max_connections (50)</span></div><div class=\"d2\">+ v411  db.pool.max_size: 20   <span class=\"cx\"># last known-good, 3h uptime</span></div>",
+    "impact": "<span class=\"k\">what it touches</span><b>6 / 6 pods</b> · prod · re-point, no rebuild<span class=\"k\">in the blast path</span>100% of card authorizations · <b>~4,182 rps</b><span class=\"k\">reversible</span>yes — one-click undo"
+  },
+  "resolved": {
+    "tx": "<b>Verified resolved.</b> Re-queried the incident’s own metric after rollback — p95 back to <b>0.33s</b>, db_conns 18/50. No rollback of the rollback needed · MTTR 142s."
+  }
 }

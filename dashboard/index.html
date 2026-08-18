@@ -3,71 +3,116 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>IncidentPilot — live console</title>
+<title>IncidentPilot — on-call console</title>
 <meta name="description" content="An agentic SRE: detects incidents, root-causes them, and remediates behind a policy + human-approval gate." />
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-<div class="wrap">
-  <div class="bar">
-    <span class="brand"><span class="mk">◆</span>IncidentPilot</span>
-    <span class="pill" id="modePill"><span class="rec"></span><span id="modeLabel">DEMO · REPLAY</span></span>
+<div class="app">
+
+  <div class="mast">
+    <svg class="mk" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+      <circle cx="11" cy="11" r="9.2" stroke="#E8952B" stroke-width="1.3"/>
+      <path d="M3 12.5 C7 10, 15 10, 19 12.5" stroke="#E8952B" stroke-width="1.3"/>
+      <path d="M11 2 v3 M11 19 v1.5" stroke="#E8952B" stroke-width="1.3"/>
+    </svg>
+    <span class="wm">IncidentPilot</span>
+    <span class="sev" id="sev">SEV1</span>
+    <span class="id" id="incid">INC-4471 · payment-service · prod</span>
     <span class="sp"></span>
-    <span class="chip">env: prod</span>
-    <span class="chip">mode: propose → approve</span>
-    <button class="replay" id="replayBtn">↻ replay</button>
+    <span class="meta" id="mmeta">owner <b>payments-oncall</b> · ack <b>K. Rao 14:01:40Z</b></span>
+    <span class="viol" id="viol">SLO p95 &lt; 1.0s — VIOLATED</span>
   </div>
 
-  <div class="status nominal" id="status">
-    <span class="orb"></span>
-    <div><span class="phase" id="phase">ALL NOMINAL</span> &nbsp;<span class="desc" id="desc">watching 6 services · anomaly scan every 5s</span></div>
-    <div class="rt"><div class="l" id="rtl">uptime streak</div><div class="v" id="rtv">4d 06h</div></div>
+  <div class="ribbon nominal-ribbon" id="ribbon">
+    <span class="dot"></span>
+    <span class="phase" id="phase">All nominal</span>
+    <span class="say" id="say">watching 6 services · anomaly scan every 5s</span>
+    <span class="elapsed" id="elapsed">uptime 4d 06h</span>
   </div>
 
-  <div class="grid">
-    <div class="card">
-      <div class="hd"><span class="t">payment-service · p95 latency</span><span class="r" id="chartLbl">nominal</span></div>
-      <div class="chartbox">
-        <div class="big"><span class="n mono" id="metric" style="color:var(--green)">0.34</span><span class="u">s</span><span class="base mono">baseline 0.35s · SLO 1.0s</span></div>
-        <svg class="spark" id="spark" viewBox="0 0 560 150" preserveAspectRatio="none"></svg>
+  <div class="tape">
+    <div class="th">Incident tape</div>
+    <div class="spine" id="spine"></div>
+  </div>
+
+  <div class="main">
+    <!-- idle -->
+    <div class="nominal" id="nominal">
+      <div class="big"><span class="d"></span>All systems nominal</div>
+      <div class="sub">6 services under watch · 0 open incidents · last page 6 days ago</div>
+      <div class="sec-h">Under watch</div>
+      <table class="signals">
+        <tr><th>service</th><th>p95</th><th>5xx</th><th>state</th></tr>
+        <tr><td>api-gateway</td><td class="tnum">41ms</td><td class="tnum">0.02%</td><td style="color:var(--up)">ok</td></tr>
+        <tr><td>payment-service</td><td class="tnum">0.34s</td><td class="tnum">0.10%</td><td style="color:var(--up)">ok</td></tr>
+        <tr><td>checkout</td><td class="tnum">88ms</td><td class="tnum">0.04%</td><td style="color:var(--up)">ok</td></tr>
+        <tr><td>ledger-db</td><td class="tnum">12ms</td><td class="tnum">0.00%</td><td style="color:var(--up)">ok</td></tr>
+      </table>
+    </div>
+
+    <!-- incident -->
+    <div class="incident" id="incident" style="display:none">
+      <div class="section">
+        <div class="sec-h">p95 request latency · payment-service</div>
+        <div class="metric">
+          <span class="n tnum" id="metric">0.34</span><span class="delta" id="delta">&nbsp;</span>
+          <span class="ref">SLO&nbsp;&nbsp;1.00 s<br>baseline&nbsp;0.34 s</span>
+        </div>
+        <div class="chart"><svg class="spark" id="spark" viewBox="0 0 560 96" preserveAspectRatio="none"></svg></div>
+        <table class="signals" id="sigwall"></table>
       </div>
-      <div class="svc" id="svc"></div>
-    </div>
 
-    <div class="card">
-      <div class="hd"><span class="t">agent · investigation</span><span class="r" id="agentR">idle</span></div>
-      <div class="stream"><div class="feed" id="feed">
-        <div class="ln res"><span class="tk">—</span><span class="bd" style="color:var(--dim)">standing by. tools: query_metrics · recent_deploys · query_logs · get_traces · read_runbook<span class="cursor"></span></span></div>
-      </div></div>
-    </div>
-  </div>
+      <div class="section">
+        <div class="sec-h" id="reason-h">Investigation</div>
+        <div class="stream" id="stream"></div>
+      </div>
 
-  <div class="result" id="result">
-    <div class="hyp">
-      <span class="cf"><span class="d"></span><span id="conf">confidence · high</span></span>
-      <h3 id="rc"></h3>
-      <p id="rcWhy"></p>
-    </div>
-    <div class="appr" id="appr">
-      <div class="top"><span class="act" id="apprAct">rollback_deploy</span><span class="mono" id="apprSvc" style="color:var(--mut);font-size:12px">payment-service</span><span class="tag">needs human approval</span></div>
-      <div class="diff" id="apprDiff"></div>
-      <div class="blast" id="apprBlast"></div>
-      <div class="acts">
-        <button class="btn go" id="approveBtn">Approve rollback</button>
-        <button class="btn">Deny</button>
-        <button class="btn">Edit</button>
-        <span class="kh">a · d · e</span>
+      <div class="verdict" id="verdict">
+        <div class="cap">Root cause
+          <span class="conf"><i></i><i></i><i></i><i class="off"></i></span> confidence high
+        </div>
+        <h2 id="rc"></h2>
+        <p id="rcwhy"></p>
+        <div class="dx" id="rcdx"></div>
+      </div>
+
+      <div class="decision" id="decision">
+        <div class="dh">
+          <span class="badge">Hold · your call</span>
+          <span class="act" id="dact">rollback_deploy → v411</span>
+          <span class="voice" id="dvoice">"High blast radius in prod. I won't touch it until you approve."</span>
+        </div>
+        <div class="cols">
+          <div class="diff" id="ddiff"></div>
+          <div class="impact" id="dimpact"></div>
+        </div>
+        <div class="confirm">
+          <span class="typed" id="typed">type <b>payment-service</b> to arm ▏</span>
+          <button class="btn go" id="approve" disabled>Approve rollback</button>
+          <button class="btn">Deny</button>
+          <button class="btn">Edit plan</button>
+          <span class="kh">a approve · d deny · e edit</span>
+        </div>
+      </div>
+
+      <div class="resolved" id="resolved">
+        <span class="ic">✓</span>
+        <span class="tx" id="restx"></span>
       </div>
     </div>
   </div>
 
-  <div class="verify" id="verify"><span class="ic">✓</span><div class="tx" id="verifyTx"></div></div>
+  <div class="foot">
+    <span id="selfeval">self-eval · offline harness · root-cause <b>10/12</b> · remediation <b>9/12</b> · unsafe actions <b>0</b></span>
+    <span style="color:var(--dim)" id="modenote">recorded demo · loops</span>
+    <a href="https://github.com/puneethkotha/IncidentPilot">source →</a>
+    <span class="rp" id="replay">↻ replay</span>
+  </div>
 
-  <div class="score" id="score"></div>
-  <div class="footnote" id="footnote"></div>
 </div>
 <script src="app.js"></script>
 </body>
