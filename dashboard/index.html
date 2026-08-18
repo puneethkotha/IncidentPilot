@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>IncidentPilot — live console</title>
+<meta name="description" content="An agentic SRE: detects incidents, root-causes them, and remediates behind a policy + human-approval gate." />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+<div class="wrap">
+  <div class="bar">
+    <span class="brand"><span class="mk">◆</span>IncidentPilot</span>
+    <span class="pill" id="modePill"><span class="rec"></span><span id="modeLabel">DEMO · REPLAY</span></span>
+    <span class="sp"></span>
+    <span class="chip">env: prod</span>
+    <span class="chip">mode: propose → approve</span>
+    <button class="replay" id="replayBtn">↻ replay</button>
+  </div>
+
+  <div class="status nominal" id="status">
+    <span class="orb"></span>
+    <div><span class="phase" id="phase">ALL NOMINAL</span> &nbsp;<span class="desc" id="desc">watching 6 services · anomaly scan every 5s</span></div>
+    <div class="rt"><div class="l" id="rtl">uptime streak</div><div class="v" id="rtv">4d 06h</div></div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <div class="hd"><span class="t">payment-service · p95 latency</span><span class="r" id="chartLbl">nominal</span></div>
+      <div class="chartbox">
+        <div class="big"><span class="n mono" id="metric" style="color:var(--green)">0.34</span><span class="u">s</span><span class="base mono">baseline 0.35s · SLO 1.0s</span></div>
+        <svg class="spark" id="spark" viewBox="0 0 560 150" preserveAspectRatio="none"></svg>
+      </div>
+      <div class="svc" id="svc"></div>
+    </div>
+
+    <div class="card">
+      <div class="hd"><span class="t">agent · investigation</span><span class="r" id="agentR">idle</span></div>
+      <div class="stream"><div class="feed" id="feed">
+        <div class="ln res"><span class="tk">—</span><span class="bd" style="color:var(--dim)">standing by. tools: query_metrics · recent_deploys · query_logs · get_traces · read_runbook<span class="cursor"></span></span></div>
+      </div></div>
+    </div>
+  </div>
+
+  <div class="result" id="result">
+    <div class="hyp">
+      <span class="cf"><span class="d"></span><span id="conf">confidence · high</span></span>
+      <h3 id="rc"></h3>
+      <p id="rcWhy"></p>
+    </div>
+    <div class="appr" id="appr">
+      <div class="top"><span class="act" id="apprAct">rollback_deploy</span><span class="mono" id="apprSvc" style="color:var(--mut);font-size:12px">payment-service</span><span class="tag">needs human approval</span></div>
+      <div class="diff" id="apprDiff"></div>
+      <div class="blast" id="apprBlast"></div>
+      <div class="acts">
+        <button class="btn go" id="approveBtn">Approve rollback</button>
+        <button class="btn">Deny</button>
+        <button class="btn">Edit</button>
+        <span class="kh">a · d · e</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="verify" id="verify"><span class="ic">✓</span><div class="tx" id="verifyTx"></div></div>
+
+  <div class="score" id="score"></div>
+  <div class="footnote" id="footnote"></div>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

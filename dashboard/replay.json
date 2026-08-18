@@ -1,0 +1,60 @@
+{
+  "mode": "replay",
+  "incident": {
+    "id": "inc-7f3a2b",
+    "service": "payment-service",
+    "metric": "http_request_duration_seconds:p95",
+    "baseline": "0.35s",
+    "severity": "high"
+  },
+  "scoreboard": {
+    "faults": "12",
+    "root_cause_accuracy": "83%",
+    "remediation_success": "75%",
+    "mttr": "142s",
+    "unsafe": "0.00"
+  },
+  "services": [
+    { "name": "api-gateway", "status": "ok" },
+    { "name": "payment-service", "status": "hot" },
+    { "name": "checkout", "status": "ok" },
+    { "name": "cache-redis", "status": "warn" },
+    { "name": "ledger-db", "status": "ok" },
+    { "name": "notify-svc", "status": "ok" }
+  ],
+  "timeline": [
+    { "at": 2200, "chart": "rising", "chartLbl": "rising" },
+    { "at": 3600, "phase": "detected", "banner": "alert", "title": "● INCIDENT DETECTED",
+      "desc": "payment-service p95 2.9s vs 0.35s · robust z-score 8.4",
+      "chart": "high", "chartLbl": "breach · z=8.4", "rtl": "incident", "rtv": "inc-7f3a2b",
+      "hotService": "payment-service" },
+    { "at": 4600, "phase": "investigating", "banner": "work", "title": "◐ INVESTIGATING",
+      "desc": "agent opened · running typed tool calls", "rtl": "elapsed", "rtv": "0:04",
+      "agentR": "running" },
+    { "at": 5000, "tool": "query_metrics", "arg": "histogram_quantile(0.95, http_request_duration…)",
+      "result": "p95 0.35 → 2.90s at 14:01:20 (+728%)", "evidence": "metric · p95 spike @ 14:01" },
+    { "at": 6100, "tool": "recent_deploys", "arg": "service=payment-service window=30m",
+      "result": "payment-service v412 @ 14:00:04 · 90s before onset", "evidence": "deploy · v412 (−90s)" },
+    { "at": 7200, "tool": "query_metrics", "arg": "pg_pool_wait_seconds",
+      "result": "pool_wait 0.01 → 1.8s · corr 0.97", "evidence": "metric · pool_wait 0.01→1.8" },
+    { "at": 8300, "tool": "query_logs", "arg": "contains=\"acquiring connection\"",
+      "result": "ERROR ×1180 \"timeout acquiring connection\"", "evidence": "logs · timeout ×1180" },
+    { "at": 9600, "tool": "read_runbook", "arg": "symptom=pool timeout",
+      "result": "matched: pool_exhaustion → roll back the deploy", "evidence": "runbook · pool_exhaustion" },
+    { "at": 10600, "phase": "root_cause",
+      "cause": "payment-service DB connection pool exhausted after deploy v412",
+      "confidence": "high", "why": "3 independent signals + deploy correlation · seen 6× before",
+      "agentR": "concluding" },
+    { "at": 11400, "phase": "awaiting_approval", "banner": "wait", "title": "◆ AWAITING APPROVAL",
+      "desc": "high blast radius in prod → human sign-off required", "rtl": "elapsed", "rtv": "0:11",
+      "agentR": "awaiting human", "action": "rollback_deploy", "from": "v412", "to": "v411",
+      "blast": "0.60 · high", "affected": "6 pods · prod", "reversible": "yes", "dryrun": "passed" },
+    { "at": 14200, "phase": "applying", "banner": "work", "title": "◐ APPLYING FIX",
+      "desc": "approved by puneeth · rollback_deploy v412 → v411", "approved": true },
+    { "at": 15600, "chart": "recovering", "chartLbl": "recovering" },
+    { "at": 17600, "phase": "resolved", "banner": "done", "title": "✓ RESOLVED",
+      "desc": "self-verified: p95 back to 0.33s · SLO recovered", "rtl": "MTTR", "rtv": "142s",
+      "chart": "recovering", "chartLbl": "recovered", "clearHot": true,
+      "verify": "Verified resolved. Re-queried the incident's own metric after rollback — p95 back to 0.33s. No rollback needed." }
+  ]
+}
