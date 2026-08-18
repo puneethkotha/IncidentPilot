@@ -1,0 +1,22 @@
+# Postgres only -- it backs DBOS durable execution. No other new infra:
+# IncidentPilot reuses the owner's existing Prometheus/Grafana.
+services:
+  postgres:
+    image: postgres:16
+    container_name: incidentpilot-postgres
+    environment:
+      POSTGRES_USER: incidentpilot
+      POSTGRES_PASSWORD: incidentpilot
+      POSTGRES_DB: incidentpilot
+    ports:
+      - "5432:5432"
+    volumes:
+      - incidentpilot_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U incidentpilot -d incidentpilot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  incidentpilot_pgdata:

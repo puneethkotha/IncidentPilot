@@ -1,0 +1,41 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "incidentpilot"
+version = "0.1.0"
+description = "Agentic SRE: watch services, diagnose incidents, remediate behind policy + human approval, orchestrated durably."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "MIT" }
+dependencies = [
+    "dbos",
+    "fastapi",
+    "uvicorn",
+    "httpx",
+    "pydantic>=2",
+    "pydantic-settings",
+    "openai",
+    "prometheus-api-client",
+    "numpy",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "ruff",
+]
+
+[project.scripts]
+incidentpilot = "incidentpilot.api:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["incidentpilot", "eval"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 100
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
