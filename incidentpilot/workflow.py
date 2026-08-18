@@ -31,7 +31,7 @@ from incidentpilot.models import (
     RootCauseHypothesis,
     VerificationResult,
 )
-from incidentpilot.monitor import promql_for
+from incidentpilot.monitor import is_recovered, promql_for
 from incidentpilot.signals import Signals, build_signals
 
 STATUS_EVENT = "status"  # DBOS event key a dashboard reads for live progress
@@ -117,13 +117,12 @@ def verify_step(incident: Incident, result: ActionResult) -> VerificationResult:
     if promql is None:
         return VerificationResult(resolved=False, notes=f"no promql for metric {incident.metric}")
 
-    threshold = max(incident.baseline * settings.recovery_factor, 0.05)
     deadline = time.monotonic() + settings.verify_timeout_seconds
     last: float | None = None
     while True:
         summary = signals.query_metrics(promql, minutes=1)
         last = summary.get("last")
-        if last is not None and last <= threshold:
+        if is_recovered(incident.metric, last, incident.baseline, settings.recovery_factor):
             _set_status("verified", resolved=True, value=last)
             return VerificationResult(
                 resolved=True, metrics_after={incident.metric: last}, notes="signal recovered"
