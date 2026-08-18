@@ -13,6 +13,8 @@ scoreboard that measures how often it was actually right.
 [![Python 3.12](https://img.shields.io/badge/python-3.12-blue.svg)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
+**[▶ Live demo — watch an incident get resolved](https://puneethkotha.github.io/IncidentPilot/)**
+
 </div>
 
 ---
@@ -136,7 +138,7 @@ Active development, built in reviewable phases:
 - [x] Diagnosis agent: tool-calling loop, real signal tools, model fallback ladder, OpenTelemetry tracing
 - [x] Durable DBOS workflow, approval delivery, post-action verification + rollback
 - [x] End-to-end eval harness with bootstrap confidence intervals and an unsafe-action CI gate
-- [ ] Live incident-timeline dashboard
+- [x] Live incident-timeline dashboard ([deployed](https://puneethkotha.github.io/IncidentPilot/))
 
 ## License
 
