@@ -1,0 +1,12 @@
+# Scrapes the demo target service. Fast scrape so injected faults show up in
+# seconds rather than minutes -- this is a demo, not a prod retention setup.
+global:
+  scrape_interval: 2s
+  evaluation_interval: 2s
+
+scrape_configs:
+  - job_name: payment-service
+    static_configs:
+      - targets: ["payment-service:8080"]
+        labels:
+          service: payment-service

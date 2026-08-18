@@ -1,9 +1,50 @@
-# Postgres only -- it backs DBOS durable execution. No other new infra:
-# IncidentPilot reuses the owner's existing Prometheus/Grafana.
+# The self-contained demo target system IncidentPilot watches and breaks.
+#   docker compose up -d            -> payment-service + prometheus + loadgen
+#   docker compose --profile durable up -d   -> also start Postgres (Phase 3 DBOS)
+#
+# The service exposes a chaos control plane (POST /admin/chaos, /admin/deploy),
+# so the fault-injection harness causes real, observable incidents.
 services:
+  payment-service:
+    build: ./demo/target_service
+    container_name: ip-payment-service
+    environment:
+      SERVICE_NAME: payment-service
+      POOL_SIZE: "10"
+    ports:
+      - "8080:8080"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request;urllib.request.urlopen('http://localhost:8080/healthz')"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  prometheus:
+    image: prom/prometheus:v3.1.0
+    container_name: ip-prometheus
+    volumes:
+      - ./demo/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    depends_on:
+      - payment-service
+
+  loadgen:
+    build: ./demo/loadgen
+    container_name: ip-loadgen
+    environment:
+      TARGET_URL: http://payment-service:8080
+      CONCURRENCY: "15"
+    depends_on:
+      payment-service:
+        condition: service_healthy
+
+  # Durable-execution store for the DBOS workflow (Phase 3). Off by default;
+  # start with:  docker compose --profile durable up -d
   postgres:
     image: postgres:16
-    container_name: incidentpilot-postgres
+    container_name: ip-postgres
+    profiles: ["durable"]
     environment:
       POSTGRES_USER: incidentpilot
       POSTGRES_PASSWORD: incidentpilot
